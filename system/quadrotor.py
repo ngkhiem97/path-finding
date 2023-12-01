@@ -70,10 +70,10 @@ class Quadrotor:
         desired_state = trajhandle(t)
 
         # Get control outputs
-        F, M = self.controlhandle(t, current_state, desired_state, self.params)
+        thrust, M = self.controlhandle(t, current_state, desired_state, self.params)
 
         # Compute derivative
-        sdot = self._compute_sdot(state, F, M, self.params)
+        sdot = self._compute_sdot(state, thrust, M, self.params)
 
         return sdot
 
