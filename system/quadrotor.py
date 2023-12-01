@@ -81,8 +81,9 @@ class Quadrotor:
                       [0.25, 0.5 / params['arm_length'], 0],
                       [0.25, 0, 0.5 / params['arm_length']],
                       [0.25, -0.5 / params['arm_length'], 0]])
-
-        prop_thrusts = np.dot(A, np.array([thrust, M[0], M[1]]))
+        
+        thrust_and_moments = np.array([thrust, M[0], M[1]])
+        prop_thrusts = np.dot(A, thrust_and_moments)
         prop_thrusts_clamped = np.maximum(np.minimum(prop_thrusts, params['maxF'] / 4), params['minF'] / 4)
 
         B = np.array([[1, 1, 1, 1],
@@ -97,15 +98,15 @@ class Quadrotor:
         qW, qX, qY, qZ, p, q, r = state[6:]
 
         quat = np.array([qW, qX, qY, qZ])
-        bRw = utils.quat_to_rot(quat)
-        wRb = np.transpose(bRw)
+        bRw = utils.quat_to_rot(quat) # Rotation matrix from world to body
+        wRb = np.transpose(bRw) # Rotation matrix from body to world
 
         # Acceleration
         gravity_force = np.array([0, 0, params['mass'] * params['gravity']])
         thrust_force = np.dot(wRb, np.array([0, 0, thrust]))
         accel = 1 / params['mass'] * (thrust_force - gravity_force)
 
-        # Angular velocity
+        # Angular velocity 
         K_quat = 2  # this enforces the magnitude 1 constraint for the quaternion
         quat_error = 1 - np.sum(quat ** 2)
         qdot_mat = -0.5 * np.array([[0, -p, -q, -r],
@@ -116,7 +117,9 @@ class Quadrotor:
 
         # Angular acceleration
         omega = np.array([p, q, r])
-        pqrdot = np.dot(params['invI'], (M - np.cross(omega, np.dot(params['I'], omega))))
+        angular_momentum = np.dot(params['I'], omega)
+        gyroscopic_torque = np.cross(omega, angular_momentum)
+        pqrdot = np.dot(params['invI'], (M - gyroscopic_torque))
 
         # Assemble sdot
         sdot = np.zeros(13)
