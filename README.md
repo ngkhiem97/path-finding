@@ -7,9 +7,9 @@ This system simulates a quadrotor UAV (Unmanned Aerial Vehicle) in a 3D environm
 
 <table>
   <tr>
+    <td><img src="animation_traj_line.gif" alt="Quadrotor following a line trajectory" title="Quadrotor following a line trajectory"/></td>
     <td><img src="animation_traj_helix.gif" alt="Quadrotor following a helix trajectory" title="Quadrotor following a helix trajectory"/></td>
     <td><img src="animation_traj_circle.gif" alt="Quadrotor following a circle trajectory" title="Quadrotor following a circle trajectory"/></td>
-    <td><img src="animation_traj_line.gif" alt="Quadrotor following a line trajectory" title="Quadrotor following a line trajectory"/></td>
   </tr>
 </table>
 
