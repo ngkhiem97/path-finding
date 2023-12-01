@@ -14,20 +14,13 @@ class Quadrotor:
         :param yaw: The initial yaw angle.
         :return: A numpy array of shape (13,) representing the initialized state.
         """
-        s = np.zeros(13)
-        phi0 = 0.0 # roll
-        theta0 = 0.0 # pitch
-        psi0 = yaw 
-
-        # Assuming you have the RPYtoRot_ZXY and RotToQuat functions defined in Python as well.
-        Rot0 = utils.rpy_to_rot_zxy(phi0, theta0, psi0)
+        Rot0 = utils.rpy_to_rot_zxy(0.0, 0.0, yaw)
         Quat0 = utils.rot_to_quat(Rot0)
-
+        s = np.zeros(13)
         s[0:3] = start     # x, y, z
         s[3:6] = 0         # xdot, ydot, zdot
         s[6:10] = Quat0    # qw, qx, qy, qz
         s[10:13] = 0       # p, q, r
-
         return s
     
     def get_prop_pos(self, pos, rot):
@@ -55,7 +48,7 @@ class Quadrotor:
 
         Args:
         t (float): Time
-        s (numpy.array): State vector [x, y, z, xd, yd, zd, qw, qx, qy, qz, p, q, r]
+        state (numpy.array): State vector [x, y, z, xd, yd, zd, qw, qx, qy, qz, p, q, r]
         controlhandle (function): Function handle of your controller
         trajhandle (function): Function handle of your trajectory generator
         params (dict): Parameters (output from sys_params() and any additional parameters)
@@ -63,18 +56,10 @@ class Quadrotor:
         Returns:
         numpy.array: Derivative of state vector s
         """
-        # Convert state to quad struct for control
         current_state = utils.state_to_qd(state)
-
-        # Get desired state
         desired_state = trajhandle(t)
-
-        # Get control outputs
         thrust, M = self.controlhandle(t, current_state, desired_state, self.params)
-
-        # Compute derivative
         sdot = self._compute_sdot(state, thrust, M, self.params)
-
         return sdot
 
     def _compute_sdot(self, state, thrust, M, params):
