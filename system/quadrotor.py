@@ -104,7 +104,7 @@ class Quadrotor:
                       [0, params['arm_length'], 0, -params['arm_length']],
                       [-params['arm_length'], 0, params['arm_length'], 0]])
 
-        F = np.dot(B[0, :], prop_thrusts_clamped)
+        thrust = np.dot(B[0, :], prop_thrusts_clamped)
         M = np.concatenate([np.dot(B[1:3, :], prop_thrusts_clamped), np.array([M[2]])]).flatten()
 
         # Assign states
