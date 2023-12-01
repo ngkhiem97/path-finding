@@ -3,20 +3,16 @@ Quadrotor Robot Motion Planning and Control Simulation
 
 This system simulates a quadrotor UAV (Unmanned Aerial Vehicle) in a 3D environment, focusing on motion planning and control. Users can simulate the quadrotor following three different types of trajectories: line, helix, and circle.
 
-Example of a quadrotor following a helix trajectory:
------------------------------------------------------
+# Examples of line, helix, and circle trajectory
 
-![alt text](animation_traj_helix.gif "Quadrotor following a helix trajectory")
+<table>
+  <tr>
+    <td><img src="animation_traj_helix.gif" alt="Quadrotor following a helix trajectory" title="Quadrotor following a helix trajectory"/></td>
+    <td><img src="animation_traj_circle.gif" alt="Quadrotor following a circle trajectory" title="Quadrotor following a circle trajectory"/></td>
+    <td><img src="animation_traj_line.gif" alt="Quadrotor following a line trajectory" title="Quadrotor following a line trajectory"/></td>
+  </tr>
+</table>
 
-Example of a quadrotor following a circle trajectory:
-------------------------------------------------------
-
-![alt text](animation_traj_circle.gif "Quadrotor following a circle trajectory")
-
-Example of a quadrotor following a line trajectory:
-----------------------------------------------------
-
-![alt text](animation_traj_line.gif "Quadrotor following a line trajectory")
 
 Prerequisites:
 ---------------
