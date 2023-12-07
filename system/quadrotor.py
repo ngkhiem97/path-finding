@@ -59,16 +59,16 @@ class Quadrotor:
         current_state = utils.state_to_qd(state)
         desired_state = trajhandle(t)
         thrust, M = self.controlhandle(t, current_state, desired_state, self.params)
-        sdot = self._compute_sdot(state, thrust, M, self.params)
+        sdot = self._compute_sdot(state, thrust, M)
         return sdot
 
-    def _compute_sdot(self, state, thrust, M, params):
+    def _compute_sdot(self, state, thrust, M):
         """
         Solve quadrotor equation of motion.
         This function calculates the derivative of the state vector.
 
         Args:
-        state (numpy.array): State vector [x, y, z, xd, yd, zd, qw, qx, qy, qz, p, q, r]
+        state (numpy.array): State vector [x, y, z, xd, yd, zd, qw, qx, qy, qz, wx, wy, wz]
         thrust (float): Thrust output from controller
         M (numpy.array): Moments output from controller
         params (dict): Parameters
@@ -76,56 +76,115 @@ class Quadrotor:
         Returns:
         numpy.array: Derivative of state vector s
         """
-        # Equations of Motion
-        A = np.array([[0.25, 0, -0.5 / params['arm_length']],
-                      [0.25, 0.5 / params['arm_length'], 0],
-                      [0.25, 0, 0.5 / params['arm_length']],
-                      [0.25, -0.5 / params['arm_length'], 0]])
-        
-        thrust_and_moments = np.array([thrust, M[0], M[1]])
-        prop_thrusts = np.dot(A, thrust_and_moments)
-        prop_thrusts_clamped = np.maximum(np.minimum(prop_thrusts, params['maxF'] / 4), params['minF'] / 4)
-
-        B = np.array([[1, 1, 1, 1],
-                      [0, params['arm_length'], 0, -params['arm_length']],
-                      [-params['arm_length'], 0, params['arm_length'], 0]])
-
-        thrust = np.dot(B[0, :], prop_thrusts_clamped)
-        M = np.concatenate([np.dot(B[1:3, :], prop_thrusts_clamped), np.array([M[2]])]).flatten()
+        thrust, M = self._clamp(thrust, M)
 
         # Assign states
         _, _, _, xdot, ydot, zdot = state[:6]
-        qW, qX, qY, qZ, p, q, r = state[6:]
+        qW, qX, qY, qZ, wX, wY, wZ = state[6:]
 
         quat = np.array([qW, qX, qY, qZ])
         bRw = utils.quat_to_rot(quat) # Rotation matrix from world to body
         wRb = np.transpose(bRw) # Rotation matrix from body to world
 
         # Acceleration
-        gravity_force = np.array([0, 0, params['mass'] * params['gravity']])
-        thrust_force = np.dot(wRb, np.array([0, 0, thrust]))
-        accel = 1 / params['mass'] * (thrust_force - gravity_force)
+        accel = self._compute_accel(thrust, wRb)
 
         # Angular velocity 
-        K_quat = 2  # this enforces the magnitude 1 constraint for the quaternion
-        quat_error = 1 - np.sum(quat ** 2)
-        qdot_mat = -0.5 * np.array([[0, -p, -q, -r],
-                                    [p, 0, -r, q],
-                                    [q, r, 0, -p],
-                                    [r, -q, p, 0]])
-        qdot = np.dot(qdot_mat, quat) + K_quat * quat_error * quat
+        qdot = self._compute_qdot(wX, wY, wZ, quat)
 
         # Angular acceleration
-        omega = np.array([p, q, r])
-        angular_momentum = np.dot(params['I'], omega)
-        gyroscopic_torque = np.cross(omega, angular_momentum)
-        pqrdot = np.dot(params['invI'], (M - gyroscopic_torque))
+        omegadot = self._compute_omegadot(M, wX, wY, wZ)
 
         # Assemble sdot
         sdot = np.zeros(13)
         sdot[0:3] = [xdot, ydot, zdot]
         sdot[3:6] = accel
         sdot[6:10] = qdot
-        sdot[10:13] = pqrdot
+        sdot[10:13] = omegadot
 
         return sdot
+
+    def _clamp(self, thrust, M):
+        """
+        Clamps the thrust and moments of the quadrotor within the specified limits.
+
+        Parameters:
+        thrust (float): The total thrust of the quadrotor.
+        M (numpy.ndarray): The moments of the quadrotor as a 1D numpy array.
+
+        Returns:
+        tuple: A tuple containing the clamped thrust and moments of the quadrotor.
+        """
+        A = np.array([[0.25, 0, -0.5 / self.params['arm_length']],
+                  [0.25, 0.5 / self.params['arm_length'], 0],
+                  [0.25, 0, 0.5 / self.params['arm_length']],
+                  [0.25, -0.5 / self.params['arm_length'], 0]])
+        
+        thrust_and_moments = np.array([thrust, M[0], M[1]])
+        prop_thrusts = np.dot(A, thrust_and_moments)
+        prop_thrusts_clamped = np.maximum(np.minimum(prop_thrusts, self.params['maxF'] / 4), self.params['minF'] / 4)
+
+        B = np.array([[1, 1, 1, 1],
+                  [0, self.params['arm_length'], 0, -self.params['arm_length']],
+                  [-self.params['arm_length'], 0, self.params['arm_length'], 0]])
+
+        thrust = np.dot(B[0, :], prop_thrusts_clamped)
+        M = np.concatenate([np.dot(B[1:3, :], prop_thrusts_clamped), np.array([M[2]])]).flatten()
+        return thrust, M
+
+    def _compute_accel(self, thrust, wRb):
+        """
+        Compute the acceleration of the quadrotor.
+
+        Parameters:
+        thrust (float): The thrust force applied to the quadrotor.
+        wRb (numpy.ndarray): The rotation matrix representing the orientation of the quadrotor.
+
+        Returns:
+        numpy.ndarray: The acceleration of the quadrotor.
+        """
+        gravity_force = np.array([0, 0, self.params['mass'] * self.params['gravity']])
+        thrust_force = np.dot(wRb, np.array([0, 0, thrust]))
+        accel = 1 / self.params['mass'] * (thrust_force - gravity_force)
+        return accel
+
+    def _compute_qdot(self, wX, wY, wZ, quat):
+        """
+        Compute the derivative of the quaternion.
+
+        Parameters:
+        wX (float): Angular velocity around the x-axis.
+        wY (float): Angular velocity around the y-axis.
+        wZ (float): Angular velocity around the z-axis.
+        quat (numpy.ndarray): Quaternion representing the orientation of the quadrotor.
+
+        Returns:
+        numpy.ndarray: The derivative of the quaternion.
+        """
+        K_quat = 2  # this enforces the magnitude 1 constraint for the quaternion
+        quat_error = 1 - np.sum(quat ** 2)
+        qdot_mat = -0.5 * np.array([[0, -wX, -wY, -wZ],
+                                    [wX, 0, -wZ, wY],
+                                    [wY, wZ, 0, -wX],
+                                    [wZ, -wY, wX, 0]])
+        qdot = np.dot(qdot_mat, quat) + K_quat * quat_error * quat
+        return qdot
+
+    def _compute_omegadot(self, M, wX, wY, wZ):
+        """
+        Compute the angular acceleration (omegadot) of the quadrotor.
+
+        Parameters:
+        - M: The total torque applied to the quadrotor.
+        - wX: The roll rate of the quadrotor.
+        - wY: The pitch rate of the quadrotor.
+        - wZ: The yaw rate of the quadrotor.
+
+        Returns:
+        - omegadot: The angular acceleration of the quadrotor.
+        """
+        omega = np.array([wX, wY, wZ])
+        angular_momentum = np.dot(self.params['I'], omega)
+        gyroscopic_torque = np.cross(omega, angular_momentum)
+        omegadot = np.dot(self.params['invI'], (M - gyroscopic_torque))
+        return omegadot
