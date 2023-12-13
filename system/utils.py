@@ -64,8 +64,6 @@ def rot_to_quat(R):
         qz = 0.25 * S
 
     q = np.array([qw, qx, qy, qz])
-    q = q * np.sign(qw)  # Ensures that the scalar component is non-negative
-
     return q
 
 def rot_to_rpy_zxy(R):
@@ -114,15 +112,13 @@ def state_to_qd(x):
     Returns:
     qd -- A dictionary with keys 'pos', 'vel', 'rot', and 'omega'.
     """
+    rot = quat_to_rot(x[6:10])
+    roll, pitch, yaw = rot_to_rpy_zxy(rot)
+    
     qd = {}
     qd['pos'] = x[0:3]
     qd['vel'] = x[3:6]
-
-    # Assuming QuatToRot and RotToRPY_ZXY are defined elsewhere
-    Rot = quat_to_rot(x[6:10])
-    phi, theta, yaw = rot_to_rpy_zxy(Rot)
-
-    qd['rot'] = np.array([phi, theta, yaw])
+    qd['rot'] = np.array([roll, pitch, yaw])
     qd['omega'] = x[10:13]
 
     return qd

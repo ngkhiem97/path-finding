@@ -55,8 +55,8 @@ def simulation_3d(trajhandle, controlhandle, max_time=30, real_time=False):
     cstep = 0.05  # Image capture time interval
     max_iter = int(max_time / cstep)
 
-    des_start = trajhandle(0)
-    des_stop = trajhandle(max_time)
+    des_start = trajhandle(0, cstep)
+    des_stop = trajhandle(max_time, cstep)
     stop_pos = des_stop['pos']
     x0 = quad.init_state(des_start['pos'], 0)
     x = x0
@@ -69,14 +69,16 @@ def simulation_3d(trajhandle, controlhandle, max_time=30, real_time=False):
         timeint = np.arange(iter * cstep, (iter + 1) * cstep, tstep)
         
         # Run simulation
-        sol = solve_ivp(lambda t, y: quad.get_motion(t, y, trajhandle), [timeint[0], timeint[-1]], x, t_eval=timeint)
+        # Explain: the solve_ivp function takes in a function handle that returns the derivative of the state vector,
+        # the time interval, the initial state, and the time points to evaluate the solution at.
+        sol = solve_ivp(lambda t, y: quad.get_motion(t, cstep, y, trajhandle), [timeint[0], timeint[-1]], x, t_eval=timeint)
         
         # Update state
         x = sol.y[:, -1]
 
         # Update quad plot
         current_state = utils.state_to_qd(x)
-        desired_state = trajhandle(timeint[-1])
+        desired_state = trajhandle(timeint[-1], cstep)
         plot.update(timeint[-1], current_state, desired_state)
 
         # Check termination criteria

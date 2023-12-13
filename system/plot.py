@@ -103,6 +103,7 @@ class QuadPlot:
 
     def _update_quad_structure(self, state):
         """Updates the structure of the quadcopter in the plot."""
+        state['rot'] *= -1 # Invert rotation for plotting
         rot = utils.rpy_to_rot_zxy(*state['rot'])
         propeller_positions = self.quad.get_prop_pos(state['pos'], rot)
         lines = self.ax.get_lines()

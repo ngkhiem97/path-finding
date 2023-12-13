@@ -1,33 +1,87 @@
 import numpy as np
 
-def traj_line(t, T=30):
+def traj_line(t, tstep, T=30, x_max=2, y_max=1, z_max=8):
     # Define the maximum time of the trajectory
-    t_max = 4
-    # Clamp the time input to be within [0, t_max] and normalize it
-    t = max(0, min(t, t_max)) / t_max
+    t0 = 0
+    tf = 5
+    
+    if t >= tf:
+        # Hover at the end of the trajectory
+        x = x_max
+        y = y_max
+        z = z_max
+        pos = np.array([x, y, z])
+        vel = np.zeros(3)
+        acc = np.zeros(3)
+    else:
+        # Matrix for quintic polynomial coefficients calculation
+        M = np.array([
+            [1, t0, t0**2, t0**3, t0**4, t0**5],
+            [0, 1, 2*t0, 3*t0**2, 4*t0**3, 5*t0**4],
+            [0, 0, 2, 6*t0, 12*t0**2, 20*t0**3],
+            [1, tf, tf**2, tf**3, tf**4, tf**5],
+            [0, 1, 2*tf, 3*tf**2, 4*tf**3, 5*tf**4],
+            [0, 0, 2, 6*tf, 12*tf**2, 20*tf**3]
+        ])
 
-    # Calculate the position, velocity, and acceleration using polynomial time-scaling
-    pos = 10 * t**3 - 15 * t**4 + 6 * t**5
-    vel = (30 / t_max) * t**2 - (60 / t_max) * t**3 + (30 / t_max) * t**4
-    acc = (60 / t_max**2) * t - (180 / t_max**2) * t**2 + (120 / t_max**2) * t**3
+        # Boundary conditions for the trajectory
+        b = np.array([[0], [0], [0], [1], [0], [0]])
 
-    # Scale the position, velocity, and acceleration by 4
-    pos *= 3
-    vel *= 3
-    acc *= 3
+        # Solving for the coefficients of the quintic polynomial
+        a = np.linalg.solve(M, b)
 
-    # Prepare the desired state output
+        # Calculating position, velocity, and acceleration at time t
+        out_t = np.dot(a.T, [1, t, t**2, t**3, t**4, t**5])
+        out_t_1 = np.dot(a.T, [1, (t-tstep), (t-tstep)**2, (t-tstep)**3, (t-tstep)**4, (t-tstep)**5])
+        out_t_2 = np.dot(a.T, [1, (t-2*tstep), (t-2*tstep)**2, (t-2*tstep)**3, (t-2*tstep)**4, (t-2*tstep)**5])
+
+        out = np.squeeze(out_t)
+        out_t_1 = np.squeeze(out_t_1)
+        out_t_2 = np.squeeze(out_t_2)
+
+        # Position
+        x = out * x_max
+        y = out * y_max
+        z = out * z_max
+        pos = np.array([x, y, z])
+        x_1 = out_t_1 * x_max
+        y_1 = out_t_1 * y_max
+        z_1 = out_t_1 * z_max
+        x_2 = out_t_2 * x_max
+        y_2 = out_t_2 * y_max
+        z_2 = out_t_2 * z_max
+
+        # Calculating velocity in each dimension
+        xd = (x-x_1) / tstep
+        yd = (y-y_1) / tstep
+        zd = (z-z_1) / tstep
+        vel = np.array([xd, yd, zd])
+        xd_1 = (x_1-x_2) / tstep
+        yd_1 = (y_1-y_2) / tstep
+        zd_1 = (z_1-z_2) / tstep
+
+        # Calculating acceleration in each dimension
+        xdd = (xd-xd_1) / tstep
+        ydd = (yd-yd_1) / tstep
+        zdd = (zd-zd_1) / tstep
+        acc = np.array([xdd, ydd, zdd])
+
+    # Yaw and yaw rate (assumed to be zero)
+    yaw = 0
+    yawdot = 0
+
+    # Returning the desired state as a dictionary
     desired_state = {
-        'pos': [pos, pos, pos],  # Same position for x, y, and z
-        'vel': [vel, vel, vel],  # Same velocity for x, y, and z
-        'acc': [acc, acc, acc],  # Same acceleration for x, y, and z
-        'yaw': pos,              # Yaw set to the position value (uncommon choice)
-        'yawdot': vel            # Yaw rate set to the velocity value
+        'pos': pos, 
+        'vel': vel, 
+        'acc': acc, 
+        'yaw': yaw, 
+        'yawdot': yawdot
     }
 
     return desired_state
 
-def traj_helix(t, T=30, r=5, z_max=2.5):
+def traj_helix(t, tstep, T=30, r=5, z_max=2.5):
     """
     This function calculates a helical trajectory in 3D space.
 
@@ -71,28 +125,38 @@ def traj_helix(t, T=30, r=5, z_max=2.5):
         a = np.linalg.solve(M, b)
 
         # Calculating position, velocity, and acceleration at time t
-        out = np.dot(a.T, [1, t, t**2, t**3, t**4, t**5])
-        outd = np.dot(a.T, [0, 1, 2*t, 3*t**2, 4*t**3, 5*t**4])
-        outdd = np.dot(a.T, [0, 0, 2, 6*t, 12*t**2, 20*t**3])
+        out_t = np.dot(a.T, [1, t, t**2, t**3, t**4, t**5])
+        out_t_1 = np.dot(a.T, [1, (t-tstep), (t-tstep)**2, (t-tstep)**3, (t-tstep)**4, (t-tstep)**5])
+        out_t_2 = np.dot(a.T, [1, (t-2*tstep), (t-2*tstep)**2, (t-2*tstep)**3, (t-2*tstep)**4, (t-2*tstep)**5]) 
 
         # Angular position, velocity, acceleration around the helix
-        beta, z = out
-        betad, zd = outd
-        betadd, zdd = outdd
+        beta, z = out_t
+        beta_1, z_1 = out_t_1
+        beta_2, z_2 = out_t_2
 
         # Calculating 3D coordinates based on the helix's radius
         x = np.cos(beta) * r
         y = np.sin(beta) * r
         pos = np.array([x, y, z])
 
+        x_1 = np.cos(beta_1) * r
+        y_1 = np.sin(beta_1) * r
+        x_2 = np.cos(beta_2) * r
+        y_2 = np.sin(beta_2) * r
+
         # Calculating velocity in each dimension
-        xd = -y * betad
-        yd = x * betad
+        xd = (x-x_1) / tstep
+        yd = (y-y_1) / tstep
+        zd = (z-z_1) / tstep
         vel = np.array([xd, yd, zd])
+        xd_1 = (x_1-x_2) / tstep
+        yd_1 = (y_1-y_2) / tstep
+        zd_1 = (z_1-z_2) / tstep
 
         # Calculating acceleration in each dimension
-        xdd = -x * betad**2 - y * betadd
-        ydd = -y * betad**2 + x * betadd
+        xdd = (xd-xd_1) / tstep
+        ydd = (yd-yd_1) / tstep
+        zdd = (zd-zd_1) / tstep
         acc = np.array([xdd, ydd, zdd])
 
     # Yaw and yaw rate (assumed to be zero)
@@ -110,7 +174,7 @@ def traj_helix(t, T=30, r=5, z_max=2.5):
 
     return desired_state
 
-def traj_circle(t, radius=8, T=30, height=1.0, ascend_fraction=0.05, rest_fraction=0.05):
+def traj_circle(t, tstep, radius=8, T=30, height=1.0, ascend_fraction=0.05, rest_fraction=0.05):
     """
     Generates a trajectory that first ascends to a specified height and then follows a circular path in the xy plane.
 
@@ -129,7 +193,8 @@ def traj_circle(t, radius=8, T=30, height=1.0, ascend_fraction=0.05, rest_fracti
     # Calculate durations for each phase of the trajectory
     ascend_time = T * ascend_fraction
     rest_time = T * rest_fraction
-    circle_time = T - ascend_time - rest_time
+    ascend_rest_time = ascend_time + rest_time
+    circle_time = T - ascend_rest_time
 
     # Phase 1: Ascending
     if t < ascend_time:
@@ -139,6 +204,10 @@ def traj_circle(t, radius=8, T=30, height=1.0, ascend_fraction=0.05, rest_fracti
         az = 0
         x, y, vx, vy, ax, ay = radius, 0, 0, 0, 0, 0
 
+        pos = np.array([x, y, z])
+        vel = np.array([vx, vy, vz])
+        acc = np.array([ax, ay, az])
+
     # Phase 2: Resting at Height
     elif t < ascend_time + rest_time:
         # Remain stationary at the specified height
@@ -146,36 +215,81 @@ def traj_circle(t, radius=8, T=30, height=1.0, ascend_fraction=0.05, rest_fracti
         vx, vy, vz = 0, 0, 0
         ax, ay, az = 0, 0, 0
 
+        pos = np.array([x, y, z])
+        vel = np.array([vx, vy, vz])
+        acc = np.array([ax, ay, az])
+
     # Phase 3: Circular Motion
     else:
         # Normalize time for the circular motion phase
-        t_circular = (t - ascend_time - rest_time) % circle_time
+        t_circular = t - ascend_rest_time
+        t_circular = t_circular % circle_time
+        t = t_circular
 
-        # Calculate the angle for the circular motion
-        angle = (2 * np.pi / circle_time) * t_circular
+        t0 = 0
+        tf = circle_time
+        
+        # Matrix for quintic polynomial coefficients calculation
+        M = np.array([
+            [1, t0, t0**2, t0**3, t0**4, t0**5],
+            [0, 1, 2*t0, 3*t0**2, 4*t0**3, 5*t0**4],
+            [0, 0, 2, 6*t0, 12*t0**2, 20*t0**3],
+            [1, tf, tf**2, tf**3, tf**4, tf**5],
+            [0, 1, 2*tf, 3*tf**2, 4*tf**3, 5*tf**4],
+            [0, 0, 2, 6*tf, 12*tf**2, 20*tf**3]
+        ])
 
-        # Position in the XY plane at the specified height
-        x = radius * np.cos(angle)
-        y = radius * np.sin(angle)
-        z = height
+        # Boundary conditions for the trajectory
+        b = np.array([[0], [0], [0], [2*np.pi], [0], [0]])
 
-        # Velocity in the circular motion
-        vx = -radius * np.sin(angle) * (2 * np.pi / circle_time)
-        vy = radius * np.cos(angle) * (2 * np.pi / circle_time)
-        vz = 0
+        # Solving for the coefficients of the quintic polynomial
+        a = np.linalg.solve(M, b)
 
-        # Acceleration in the circular motion
-        ax = -radius * np.cos(angle) * (2 * np.pi / circle_time)**2
-        ay = -radius * np.sin(angle) * (2 * np.pi / circle_time)**2
-        az = 0
+        # Calculating position, velocity, and acceleration at time t
+        out_t = np.dot(a.T, [1, t, t**2, t**3, t**4, t**5])
+        out_t_1 = np.dot(a.T, [1, (t-tstep), (t-tstep)**2, (t-tstep)**3, (t-tstep)**4, (t-tstep)**5])
+        out_t_2 = np.dot(a.T, [1, (t-2*tstep), (t-2*tstep)**2, (t-2*tstep)**3, (t-2*tstep)**4, (t-2*tstep)**5]) 
 
-    # Desired state output
+        out_t = np.squeeze(out_t)
+        out_t_1 = np.squeeze(out_t_1)
+        out_t_2 = np.squeeze(out_t_2)
+
+        # Calculating 3D coordinates based on the helix's radius
+        x = np.cos(out_t) * radius
+        y = np.sin(out_t) * radius
+        z = z_1 = z_2 = height
+        pos = np.array([x, y, z])
+        x_1 = np.cos(out_t_1) * radius
+        y_1 = np.sin(out_t_1) * radius
+        x_2 = np.cos(out_t_2) * radius
+        y_2 = np.sin(out_t_2) * radius
+
+        # Calculating velocity in each dimension
+        xd = (x-x_1) / tstep
+        yd = (y-y_1) / tstep
+        zd = (z-z_1) / tstep
+        vel = np.array([xd, yd, zd])
+        xd_1 = (x_1-x_2) / tstep
+        yd_1 = (y_1-y_2) / tstep
+        zd_1 = (z_1-z_2) / tstep
+
+        # Calculating acceleration in each dimension
+        xdd = (xd-xd_1) / tstep
+        ydd = (yd-yd_1) / tstep
+        zdd = (zd-zd_1) / tstep
+        acc = np.array([xdd, ydd, zdd])
+
+    # Yaw and yaw rate (assumed to be zero)
+    yaw = 0
+    yawdot = 0
+
+    # Returning the desired state as a dictionary
     desired_state = {
-        'pos': np.array([x, y, z]),   # Position
-        'vel': np.array([vx, vy, vz]), # Velocity
-        'acc': np.array([ax, ay, az]), # Acceleration
-        'yaw': 0,
-        'yawdot': 0
+        'pos': pos, 
+        'vel': vel, 
+        'acc': acc, 
+        'yaw': yaw, 
+        'yawdot': yawdot
     }
 
     return desired_state
