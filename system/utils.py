@@ -10,20 +10,10 @@ def quat_to_rot(quat):
     Returns:
     R -- numpy 3x3 array representing the rotation matrix
     """
-    # Normalize the quaternion
-    quat = np.array(quat)
-    quat = quat / np.sqrt(np.sum(quat**2))
-
-    # Quaternion algebraic hat matrix
-    qahat = np.array([
-        [0, -quat[3], quat[2]],
-        [quat[3], 0, -quat[1]],
-        [-quat[2], quat[1], 0]
-    ])
-
-    # Calculate the rotation matrix
-    R = np.eye(3) + 2 * np.dot(qahat, qahat) + 2 * quat[0] * qahat
-
+    qw, qx, qy, qz = quat[0], quat[1], quat[2], quat[3]
+    R = np.array([[1 - 2 * qy**2 - 2 * qz**2, 2 * (qx * qy - qz * qw), 2 * (qx * qz + qy * qw)],
+                  [2 * (qx * qy + qz * qw), 1 - 2 * qx**2 - 2 * qz**2, 2 * (qy * qz - qx * qw)],
+                  [2 * (qx * qz - qy * qw), 2 * (qy * qz + qx * qw), 1 - 2 * qx**2 - 2 * qy**2]])
     return R
 
 def rot_to_quat(R):
@@ -79,7 +69,6 @@ def rot_to_rpy_zxy(R):
     phi = np.arcsin(R[1, 2])
     psi = np.arctan2(-R[1, 0] / np.cos(phi), R[1, 1] / np.cos(phi))
     theta = np.arctan2(-R[0, 2] / np.cos(phi), R[2, 2] / np.cos(phi))
-
     return phi, theta, psi
 
 def rpy_to_rot_zxy(phi, theta, psi):
