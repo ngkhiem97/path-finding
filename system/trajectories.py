@@ -14,39 +14,22 @@ def traj_line(t, tstep, T=30, x_max=2, y_max=1, z_max=8):
         vel = np.zeros(3)
         acc = np.zeros(3)
     else:
-        # Matrix for quintic polynomial coefficients calculation
-        M = np.array([
-            [1, t0, t0**2, t0**3, t0**4, t0**5],
-            [0, 1, 2*t0, 3*t0**2, 4*t0**3, 5*t0**4],
-            [0, 0, 2, 6*t0, 12*t0**2, 20*t0**3],
-            [1, tf, tf**2, tf**3, tf**4, tf**5],
-            [0, 1, 2*tf, 3*tf**2, 4*tf**3, 5*tf**4],
-            [0, 0, 2, 6*tf, 12*tf**2, 20*tf**3]
-        ])
-
-        # Boundary conditions for the trajectory
-        b = np.array([[0], [0], [0], [1], [0], [0]])
-
-        # Solving for the coefficients of the quintic polynomial
-        a = np.linalg.solve(M, b)
-
-        # Calculating position, velocity, and acceleration at time t
-        out_t = np.dot(a.T, [1, t, t**2, t**3, t**4, t**5])
-        out_t_1 = np.dot(a.T, [1, (t-tstep), (t-tstep)**2, (t-tstep)**3, (t-tstep)**4, (t-tstep)**5])
-        out_t_2 = np.dot(a.T, [1, (t-2*tstep), (t-2*tstep)**2, (t-2*tstep)**3, (t-2*tstep)**4, (t-2*tstep)**5])
-
-        out = np.squeeze(out_t)
+        y = [1]
+        out_t, out_t_1, out_t_2 = _quintic_poly(t, t0, tstep, tf, y)
+        out_t = np.squeeze(out_t)
         out_t_1 = np.squeeze(out_t_1)
         out_t_2 = np.squeeze(out_t_2)
 
         # Position
-        x = out * x_max
-        y = out * y_max
-        z = out * z_max
+        x = out_t * x_max
+        y = out_t * y_max
+        z = out_t * z_max
         pos = np.array([x, y, z])
+
         x_1 = out_t_1 * x_max
         y_1 = out_t_1 * y_max
         z_1 = out_t_1 * z_max
+
         x_2 = out_t_2 * x_max
         y_2 = out_t_2 * y_max
         z_2 = out_t_2 * z_max
@@ -108,26 +91,8 @@ def traj_helix(t, tstep, T=30, r=5, z_max=2.5):
         vel = np.zeros(3)
         acc = np.zeros(3)
     else:
-        # Matrix for quintic polynomial coefficients calculation
-        M = np.array([
-            [1, t0, t0**2, t0**3, t0**4, t0**5],
-            [0, 1, 2*t0, 3*t0**2, 4*t0**3, 5*t0**4],
-            [0, 0, 2, 6*t0, 12*t0**2, 20*t0**3],
-            [1, tf, tf**2, tf**3, tf**4, tf**5],
-            [0, 1, 2*tf, 3*tf**2, 4*tf**3, 5*tf**4],
-            [0, 0, 2, 6*tf, 12*tf**2, 20*tf**3]
-        ])
-
-        # Boundary conditions for the trajectory
-        b = np.array([[0, 0], [0, 0], [0, 0], [2*np.pi, z_max], [0, 0], [0, 0]])
-
-        # Solving for the coefficients of the quintic polynomial
-        a = np.linalg.solve(M, b)
-
-        # Calculating position, velocity, and acceleration at time t
-        out_t = np.dot(a.T, [1, t, t**2, t**3, t**4, t**5])
-        out_t_1 = np.dot(a.T, [1, (t-tstep), (t-tstep)**2, (t-tstep)**3, (t-tstep)**4, (t-tstep)**5])
-        out_t_2 = np.dot(a.T, [1, (t-2*tstep), (t-2*tstep)**2, (t-2*tstep)**3, (t-2*tstep)**4, (t-2*tstep)**5]) 
+        y = [2*np.pi, z_max]
+        out_t, out_t_1, out_t_2 = _quintic_poly(t, t0, tstep, tf, y)
 
         # Angular position, velocity, acceleration around the helix
         beta, z = out_t
@@ -141,6 +106,7 @@ def traj_helix(t, tstep, T=30, r=5, z_max=2.5):
 
         x_1 = np.cos(beta_1) * r
         y_1 = np.sin(beta_1) * r
+
         x_2 = np.cos(beta_2) * r
         y_2 = np.sin(beta_2) * r
 
@@ -149,6 +115,7 @@ def traj_helix(t, tstep, T=30, r=5, z_max=2.5):
         yd = (y-y_1) / tstep
         zd = (z-z_1) / tstep
         vel = np.array([xd, yd, zd])
+
         xd_1 = (x_1-x_2) / tstep
         yd_1 = (y_1-y_2) / tstep
         zd_1 = (z_1-z_2) / tstep
@@ -228,28 +195,9 @@ def traj_circle(t, tstep, radius=8, T=30, height=1.0, ascend_fraction=0.05, rest
 
         t0 = 0
         tf = circle_time
-        
-        # Matrix for quintic polynomial coefficients calculation
-        M = np.array([
-            [1, t0, t0**2, t0**3, t0**4, t0**5],
-            [0, 1, 2*t0, 3*t0**2, 4*t0**3, 5*t0**4],
-            [0, 0, 2, 6*t0, 12*t0**2, 20*t0**3],
-            [1, tf, tf**2, tf**3, tf**4, tf**5],
-            [0, 1, 2*tf, 3*tf**2, 4*tf**3, 5*tf**4],
-            [0, 0, 2, 6*tf, 12*tf**2, 20*tf**3]
-        ])
 
-        # Boundary conditions for the trajectory
-        b = np.array([[0], [0], [0], [2*np.pi], [0], [0]])
-
-        # Solving for the coefficients of the quintic polynomial
-        a = np.linalg.solve(M, b)
-
-        # Calculating position, velocity, and acceleration at time t
-        out_t = np.dot(a.T, [1, t, t**2, t**3, t**4, t**5])
-        out_t_1 = np.dot(a.T, [1, (t-tstep), (t-tstep)**2, (t-tstep)**3, (t-tstep)**4, (t-tstep)**5])
-        out_t_2 = np.dot(a.T, [1, (t-2*tstep), (t-2*tstep)**2, (t-2*tstep)**3, (t-2*tstep)**4, (t-2*tstep)**5]) 
-
+        y = [2*np.pi]
+        out_t, out_t_1, out_t_2 = _quintic_poly(t, t0, tstep, tf, y)
         out_t = np.squeeze(out_t)
         out_t_1 = np.squeeze(out_t_1)
         out_t_2 = np.squeeze(out_t_2)
@@ -259,8 +207,10 @@ def traj_circle(t, tstep, radius=8, T=30, height=1.0, ascend_fraction=0.05, rest
         y = np.sin(out_t) * radius
         z = z_1 = z_2 = height
         pos = np.array([x, y, z])
+
         x_1 = np.cos(out_t_1) * radius
         y_1 = np.sin(out_t_1) * radius
+
         x_2 = np.cos(out_t_2) * radius
         y_2 = np.sin(out_t_2) * radius
 
@@ -269,6 +219,7 @@ def traj_circle(t, tstep, radius=8, T=30, height=1.0, ascend_fraction=0.05, rest
         yd = (y-y_1) / tstep
         zd = (z-z_1) / tstep
         vel = np.array([xd, yd, zd])
+
         xd_1 = (x_1-x_2) / tstep
         yd_1 = (y_1-y_2) / tstep
         zd_1 = (z_1-z_2) / tstep
@@ -293,6 +244,44 @@ def traj_circle(t, tstep, radius=8, T=30, height=1.0, ascend_fraction=0.05, rest
     }
 
     return desired_state
+
+def _quintic_poly(t, t0, dt, tf, y):
+    """
+    Calculates the quintic polynomial trajectory at a given time `t` between initial time `t0` and final time `tf`.
+
+    Parameters:
+        t (float): The current time.
+        t0 (float): The initial time.
+        tf (float): The final time.
+        y (float): The desired position at the final time.
+
+    Returns:
+        tuple: A tuple containing the position at time `t`, time `t-dt`, and time `t-2*dt`.
+    """
+
+    # Matrix for quintic polynomial coefficients calculation
+    M = np.array([
+        [1, t0, t0**2, t0**3, t0**4, t0**5],
+        [0, 1, 2*t0, 3*t0**2, 4*t0**3, 5*t0**4],
+        [0, 0, 2, 6*t0, 12*t0**2, 20*t0**3],
+        [1, tf, tf**2, tf**3, tf**4, tf**5],
+        [0, 1, 2*tf, 3*tf**2, 4*tf**3, 5*tf**4],
+        [0, 0, 2, 6*tf, 12*tf**2, 20*tf**3]
+    ])
+
+    Y = np.zeros_like(y)
+
+    # Boundary conditions for the trajectory
+    b = np.array([Y, Y, Y, y, Y, Y])
+
+    # Solving for the coefficients of the quintic polynomial
+    a = np.linalg.solve(M, b)
+
+    out_t = np.dot(a.T, [1, t, t**2, t**3, t**4, t**5])
+    out_t_1 = np.dot(a.T, [1, (t-dt), (t-dt)**2, (t-dt)**3, (t-dt)**4, (t-dt)**5])
+    out_t_2 = np.dot(a.T, [1, (t-2*dt), (t-2*dt)**2, (t-2*dt)**3, (t-2*dt)**4, (t-2*dt)**5])
+
+    return out_t, out_t_1, out_t_2
 
 if __name__ == "__main__":
     # Example usage:
