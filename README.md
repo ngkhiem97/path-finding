@@ -35,6 +35,6 @@ When prompted, enter the desired trajectory type:
 
 The simulation will start and display the quadrotor's movement in real-time. Upon completion, a GIF animation of the quadrotor's trajectory will be saved in the current directory.
 
-The animations are named according to the trajectory type (e.g., `animation_line.gif`, `animation_helix.gif`, `animation_circle.gif`).
+The animations are named according to the trajectory type (e.g., `animation_traj_line.gif`, `animation_traj_helix.gif`, `animation_traj_circle.gif`).
 
 For more information or support, please contact ng.khiem97vn@gmail.com.

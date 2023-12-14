@@ -1,6 +1,20 @@
 import numpy as np
 
 def traj_line(t, tstep, T=30, x_max=2, y_max=1, z_max=8):
+    """
+    Generate a linear trajectory for a quadrotor.
+
+    Args:
+        t (float): Current time.
+        tstep (float): Time step.
+        T (float, optional): Maximum time of the trajectory. Defaults to 30.
+        x_max (float, optional): Maximum value for x coordinate. Defaults to 2.
+        y_max (float, optional): Maximum value for y coordinate. Defaults to 1.
+        z_max (float, optional): Maximum value for z coordinate. Defaults to 8.
+
+    Returns:
+        dict: Desired state of the quadrotor, including position, velocity, acceleration, yaw, and yaw rate.
+    """
     # Define the maximum time of the trajectory
     t0 = 0
     tf = 5
